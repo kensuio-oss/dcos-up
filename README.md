@@ -4,7 +4,7 @@ Sets up DCOS infrastructure on AWS.
 
 ## Install terraform
 
-Download terraform for your operating system from [Terraform Download page](https://www.terraform.io/downloads.html).  
+Download terraform for your operating system from [Terraform Download page](https://www.terraform.io/downloads.html).
 
 For **OSX**, it will be:
 ```sh
@@ -16,7 +16,7 @@ OS_DIST=linux
 ```
 
 Now, assuming you're on a amd64 arch, you can install by running the following:
-    
+
 ```sh
     cd $HOME
     TF_VERSION=0.6.14
@@ -25,7 +25,7 @@ Now, assuming you're on a amd64 arch, you can install by running the following:
     ln -s $HOME/terraform_${TF_VERSION}_${OS_DIST}_amd64 /usr/local/terraform
     export PATH=/usr/local/terraform:$PATH
 ```
-    
+
 
 ## Get this project
 
@@ -34,7 +34,7 @@ Now, assuming you're on a amd64 arch, you can install by running the following:
     git clone https://github.com/data-fellas/dcos-terraform.git .
 
 ## Create terraform credentials file
-    
+
     mkdir -p $HOME/.aws
     cat > $HOME/.aws/terraform <<EOF
     #!/bin/bash
@@ -55,12 +55,12 @@ Now, assuming you're on a amd64 arch, you can install by running the following:
     source $HOME/.aws/terraform
     terraform apply
 
-This will create all AWS resources and start the process of setting up DCOS masters, agents and the bootstrap node.  
+This will create all AWS resources and start the process of setting up DCOS masters, agents and the bootstrap node.
 TODO: ... add estimates on how long does it usually take to create the infra.
 
 ## Infrastructure name
 
-The template defines infrastructure name uing the `infra_name` variable. The default name is `test_infra`, to change the name, for any Terraform operation:
+The template defines infrastructure name using the `infra_name` variable. The default name is `test_infra`, to change the name, for any Terraform operation:
 
     cd $HOME/dcos-terraform
     source $HOME/.aws/terraform
@@ -70,8 +70,8 @@ The template defines infrastructure name uing the `infra_name` variable. The def
 
 ## How does this work
 
-The `terraform apply` command makes sure that all machines come up on the cloud provider and that all of them are set up for DCOS + have `consul` installed.  
-From here, consul takes over. The `consul-watch-nodes.py` watcher awaits for all master and agent nodes. Once these are up, the watcher triggers the bootstrap node `bootstrap` process: https://docs.mesosphere.com/concepts/installing/installing-enterprise-edition/manual-installation/.  
+The `terraform apply` command makes sure that all machines come up on the cloud provider and that all of them are set up for DCOS + have `consul` installed.
+From here, consul takes over. The `consul-watch-nodes.py` watcher awaits for all master and agent nodes. Once these are up, the watcher triggers the bootstrap node `bootstrap` process: https://docs.mesosphere.com/concepts/installing/installing-enterprise-edition/manual-installation/.
 When the bootstrap process finishes, the bootstrap node has the bootstrap docker container running. This container is what master and agents use to download `dcos_install.sh` program. The final step on the bootstrap node is registering bootstrap container service.  
 This service is then detected by the `consul-service-watch.py`, this watch triggers `setup-dcos-node.sh` run on master and agent nodes.  
 Once `setup-dcos-node.sh` finishes on all nodes, DCOS installation is complete.
