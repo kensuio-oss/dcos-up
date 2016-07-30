@@ -37,7 +37,7 @@ if [ $? != 0 ]; then
 fi
 log "DCOS Zookeeper IP address: ${DCOS_ZK_IP}"
 
-# Pull docs config generator:
+# Pull dcos config generator:
 if [ ! -f dcos_generate_config.sh.downloaded ]; then
   log "Downloading dcos_generate_config.sh file..."
   #wget https://downloads.mesosphere.com/dcos/stable/dcos_generate_config.sh -O dcos_generate_config.sh
