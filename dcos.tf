@@ -3,7 +3,7 @@ variable "infra_name" {
 }
 
 variable "region" {
-  default = "eu-west-1"
+  default = "us-east-1"
 }
 
 variable "availability_zone" {
@@ -13,11 +13,11 @@ variable "availability_zone" {
 variable "bootstrap_port" {
   default = "10000"
 }
-
+# coreos ami is used only for us-east-1 and us-west-1
 variable "ami_ids" {
   default {
-    us-east-1 = "ami-6d1c2007"
-    us-west-1 = "ami-af4333cf"
+    us-east-1 = "ami-1c94e10b"
+    us-west-1 = "ami-43561a23"
     us-west-2 = "ami-d2c924b2"
     eu-central-1 = "ami-9bf712f4"
     eu-west-1 = "ami-7abd0209"
@@ -31,10 +31,10 @@ variable "ami_ids" {
 
 variable "instance_types" {
   default = {
-    bootstrap    = "m4.2xlarge"
-    master       = "m4.2xlarge"
-    slave        = "m4.2xlarge"
-    slave_public = "m4.2xlarge"
+    bootstrap    = "m3.xlarge"
+    master       = "m3.xlarge"
+    slave        = "m3.xlarge"
+    slave_public = "m3.xlarge"
   }  
 }
 
@@ -45,13 +45,13 @@ variable "instance_counts" {
     slave_public = 1
   }
 }
-
+# please change the keys_dir that reflect the dcos_key dir on your machine
 variable "provisioner" {
   default = {
-    username = "centos"
-    key_name = "dcos-centos"
-    keys_dir = "/Users/rad/Downloads"
-    directory = "/home/centos/provisioner" # we need to survive reboots
+    username = "core"
+    key_name = "dcos-key"
+    keys_dir = "/Users/ant/.ssh/"
+    directory = "/home/core/provisioner" # we need to survive reboots
   }
 }
 
