@@ -29,9 +29,9 @@ Now, assuming you're on a amd64 arch, you can install by running the following:
 
 ## Get this project
 
-    mkdir -p $HOME/dcos-terraform
-    cd $HOME/dcos-terraform
-    git clone https://github.com/data-fellas/dcos-terraform.git .
+    mkdir -p $HOME/dcos-up
+    cd $HOME/dcos-up
+    git clone https://github.com/ant3dr/dcos-up.git .
 
 ## Create terraform credentials file
 
@@ -40,12 +40,12 @@ Now, assuming you're on a amd64 arch, you can install by running the following:
     #!/bin/bash
     export AWS_ACCESS_KEY_ID=AKIA...
     export AWS_SECRET_ACCESS_KEY=...
-    export AWS_DEFAULT_REGION="eu-west-1"
+    export AWS_DEFAULT_REGION="us-east-1"
     EOF
 
 ## See the plan
 
-    cd $HOME/dcos-terraform
+    cd $HOME/dcos-up
     source $HOME/.aws/terraform
     terraform plan
 
@@ -78,18 +78,10 @@ Once `setup-dcos-node.sh` finishes on all nodes, DCOS installation is complete.
 
 ## Operating system
 
-This setup uses CentOS 7. AMI IDs:
+This setup uses CoreOS . AMI IDs:
 
-- US East (N. Virginia): `ami-6d1c2007`
-- US West (Oregon): `ami-d2c924b2`
-- US West (N. California): `ami-af4333cf`
-- EU (Frankfurt): `ami-9bf712f4`
-- EU (Ireland): `ami-7abd0209`
-- Asia Pacific (Singapore): `ami-f068a193`
-- Asia Pacific (Sydney): `ami-fedafc9d`
-- Asia Pacific (Tokyo): `ami-eec1c380`
-- Asia Pacific (Seoul): `ami-c74789a9`
-- South America (Sao Paulo): `ami-26b93b4a`
+- US East (N. Virginia): `ami-1c94e10b`
+- US West (N. California): `ami-43561a23`
 
 # License
 
