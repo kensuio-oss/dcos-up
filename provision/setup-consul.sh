@@ -1,29 +1,27 @@
 #!/usr/bin/env bash
 set -e
+# need to check echo newlines
 
 source `pwd`/env-setup.sh
 
-log "Installing Consul dependencies..."
-
-sudo yum update -y
-sudo yum install -y unzip wget
+echo "Installing Consul dependencies..."
 
 base=`pwd`
 
-mkdir -p /tmp/install-consul && cd /tmp/install-consul
+mkdir -p /opt/install-consul && cd /tmp/install-consul
 sudo mkdir -p ${CONSUL_INSTALL_DIR}/data
 
 if [ -z "$(consul 2>/dev/null)" ]; then
   log "Downloading Consul ${CONSUL_VERSION}..."
   CONSUL_ARCHIVE=consul_${CONSUL_VERSION}_linux_amd64.zip
-  wget https://releases.hashicorp.com/consul/${CONSUL_VERSION}/${CONSUL_ARCHIVE}
-  log "Installing Consul ${CONSUL_VERSION}..."
+  wget --no-check-certificate https://releases.hashicorp.com/consul/${CONSUL_VERSION}/${CONSUL_ARCHIVE}
+  echo "Installing Consul ${CONSUL_VERSION}..."
   unzip ${CONSUL_ARCHIVE} >/dev/null
   chmod +x consul
   sudo mv consul ${CONSUL_INSTALL_DIR}/consul
   sudo ln -s ${CONSUL_INSTALL_DIR}/consul /usr/bin/consul
 else
-  log "$(consul version | head -n 1) already installed."
+  echo "$(consul version | head -n 1) already installed."
 fi
 
 log "Setting up Consul service..."
@@ -112,4 +110,4 @@ fi
 sudo systemctl enable consul.service
 sudo systemctl start consul
 
-log "Consul ready."
+echo "Consul ready."
