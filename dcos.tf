@@ -25,18 +25,33 @@ variable "instance_types" {
   default = {
     bootstrap    = "m3.xlarge"
     master       = "m3.xlarge"
-    slave        = "m3.xlarge"
-    slave_public = "m3.xlarge"
+    agent        = "m3.xlarge"
+    agent_public = "m3.xlarge"
   }  
 }
 
 variable "instance_counts" {
   default = {
     master       = 1
-    slave        = 2
-    slave_public = 1
+    agent        = 2
+    agent_public = 1
   }
 }
+variable "vpc_cidr"{
+  description = "CIDR for dcos"
+  default = "10.0.0.0/16"
+}
+
+variable "private_subnet_cidr" {
+  description = "DCOS CIDR for the Private Subnet"
+  default = "10.0.0.0/17"
+}
+
+variable "public_subnet_cidr" {
+  description = "DCOS CIDR for the Public Subnet"
+  default = "10.0.128.0/20"
+}
+
 # please change the keys_dir that reflect the dcos_key dir on your machine
 variable "provisioner" {
   default = {
@@ -97,12 +112,6 @@ resource "aws_security_group" "consul_member" {
     protocol = "tcp"
     self = true
   }
-#  ingress {
-#    from_port = 8600
-#    to_port = 8600
-#    protocol = "udp"
-#    self = true
-#  }
   egress {
     from_port = 0
     to_port = 0
@@ -139,9 +148,9 @@ resource "aws_security_group" "dcos_member" {
   }
 }
 
-resource "aws_security_group" "dcos_slave" {
-  name = "${var.infra_name}_dcos_slave"
-  description = "DCOS slave access"
+resource "aws_security_group" "dcos_agent" {
+  name = "${var.infra_name}_dcos_agent"
+  description = "DCOS agent access"
   ingress {
     from_port = 1
     to_port = 21
@@ -162,9 +171,9 @@ resource "aws_security_group" "dcos_slave" {
   }
 }
 
-resource "aws_security_group" "dcos_slave_public" {
-  name = "${var.infra_name}_dcos_slave_public"
-  description = "DCOS slave public access"
+resource "aws_security_group" "dcos_agent_public" {
+  name = "${var.infra_name}_dcos_agent_public"
+  description = "DCOS agent public access"
   ingress {
     from_port = 1
     to_port = 21
@@ -224,9 +233,6 @@ resource "aws_instance" "dcos_bootstrap" {
   tags {
     Name = "${var.infra_name}_dcos_bootstrap"
   }
-  #security_groups = [ "${aws_security_group.ssh_access.name}",
-  #                    "${aws_security_group.consul_member.name}",
-  #                    "${aws_security_group.bootstrap_http.name}"]
   vpc_security_group_ids = [ "${aws_security_group.ssh_access.id}",
                              "${aws_security_group.consul_member.id}",
                              "${aws_security_group.bootstrap_http.id}"]
@@ -240,7 +246,7 @@ resource "aws_instance" "dcos_bootstrap" {
       "echo export BOOTSTRAP_NODE_ADDRESS=${self.private_dns} > ${var.provisioner.directory}/vars",
       "echo export BOOTSTRAP_PORT=${var.bootstrap_port} >> ${var.provisioner.directory}/vars",
       "echo export EXPECTED_MASTER_COUNT=${var.instance_counts.master} >> ${var.provisioner.directory}/vars",
-      "echo export EXPECTED_AGENT_COUNT=${var.instance_counts.slave+var.instance_counts.slave_public} >> ${var.provisioner.directory}/vars",
+      "echo export EXPECTED_AGENT_COUNT=${var.instance_counts.agent+var.instance_counts.agent_public} >> ${var.provisioner.directory}/vars",
       "echo export DATACENTER=${var.infra_name} >> ${var.provisioner.directory}/vars",
       "echo export NODE_NAME=dcos_bootstrap >> ${var.provisioner.directory}/vars",
       "echo export IS_CONSUL_SERVER=true >> ${var.provisioner.directory}/vars",
@@ -274,10 +280,6 @@ resource "aws_instance" "dcos_master_node" {
   tags {
     Name = "${var.infra_name}_dcos_master_node-${count.index}"
   }
-  #security_groups = [ "${aws_security_group.ssh_access.name}",
-  #                    "${aws_security_group.consul_member.name}",
-  #                    "${aws_security_group.dcos_member.name}",
-  #                     "${aws_security_group.dcos_master_insecure.name}" ]
   vpc_security_group_ids = [ "${aws_security_group.ssh_access.id}",
                              "${aws_security_group.consul_member.id}",
                              "${aws_security_group.dcos_member.id}",
@@ -314,23 +316,19 @@ resource "aws_instance" "dcos_master_node" {
   }
 }
 
-resource "aws_instance" "dcos_slave_node" {
-  count = "${var.instance_counts.slave}"
+resource "aws_instance" "dcos_agent_node" {
+  count = "${var.instance_counts.agent}"
   ami = "${lookup(var.ami_ids, var.region)}"
-  instance_type = "${var.instance_types.slave}"
+  instance_type = "${var.instance_types.agent}"
   availability_zone = "${var.region}${var.availability_zone}"
   key_name = "${var.provisioner.key_name}"
   tags {
-    Name = "${var.infra_name}_dcos_slave_node-${count.index}"
+    Name = "${var.infra_name}_dcos_agent_node-${count.index}"
   }
-  #security_groups = [ "${aws_security_group.ssh_access.name}",
-  #                    "${aws_security_group.consul_member.name}",
-  #                    "${aws_security_group.dcos_member.name}",
-  #                    "${aws_security_group.dcos_slave.name}" ]
   vpc_security_group_ids = [ "${aws_security_group.ssh_access.id}",
                              "${aws_security_group.consul_member.id}",
                              "${aws_security_group.dcos_member.id}",
-                             "${aws_security_group.dcos_slave.id}" ]
+                             "${aws_security_group.dcos_agent.id}" ]
   connection {
     user = "${var.provisioner.username}"
     key_file = "${path.module}/keys/${var.provisioner.key_name}.pem"
@@ -341,10 +339,10 @@ resource "aws_instance" "dcos_slave_node" {
       "echo export BOOTSTRAP_NODE_ADDRESS=${aws_instance.dcos_bootstrap.private_dns} > ${var.provisioner.directory}/vars",
       "echo export BOOTSTRAP_PORT=${var.bootstrap_port} >> ${var.provisioner.directory}/vars",
       "echo export DATACENTER=${var.infra_name} >> ${var.provisioner.directory}/vars",
-      "echo export NODE_NAME=dcos_slave_node-${count.index} >> ${var.provisioner.directory}/vars",
+      "echo export NODE_NAME=dcos_agent_node-${count.index} >> ${var.provisioner.directory}/vars",
       "echo export IPV4_PRIVATE=${self.private_ip} >> ${var.provisioner.directory}/vars",
       "echo export IPV4_PUBLIC=${self.public_ip} >> ${var.provisioner.directory}/vars",
-      "echo export DCOS_NODE_TYPE=slave >> ${var.provisioner.directory}/vars"
+      "echo export DCOS_NODE_TYPE=agent >> ${var.provisioner.directory}/vars"
     ]
   }
   provisioner "file" {
@@ -363,23 +361,19 @@ resource "aws_instance" "dcos_slave_node" {
   }
 }
 
-resource "aws_instance" "dcos_slave_public_node" {
-  count = "${var.instance_counts.slave_public}"
+resource "aws_instance" "dcos_agent_public_node" {
+  count = "${var.instance_counts.agent_public}"
   ami = "${lookup(var.ami_ids, var.region)}"
-  instance_type = "${var.instance_types.slave_public}"
+  instance_type = "${var.instance_types.agent_public}"
   availability_zone = "${var.region}${var.availability_zone}"
   key_name = "${var.provisioner.key_name}"
   tags {
-    Name = "${var.infra_name}_dcos_slave_public_node-${count.index}"
+    Name = "${var.infra_name}_dcos_agent_public_node-${count.index}"
   }
-  #security_groups = [ "${aws_security_group.ssh_access.name}",
-  #                    "${aws_security_group.consul_member.name}",
-  #                    "${aws_security_group.dcos_member.name}",
-  #                    "${aws_security_group.dcos_slave_public.name}" ]
   vpc_security_group_ids = [ "${aws_security_group.ssh_access.id}",
                              "${aws_security_group.consul_member.id}",
                              "${aws_security_group.dcos_member.id}",
-                             "${aws_security_group.dcos_slave_public.id}" ]
+                             "${aws_security_group.dcos_agent_public.id}" ]
   connection {
     user = "${var.provisioner.username}"
     key_file = "${path.module}/keys/${var.provisioner.key_name}.pem"
@@ -390,10 +384,10 @@ resource "aws_instance" "dcos_slave_public_node" {
       "echo export BOOTSTRAP_NODE_ADDRESS=${aws_instance.dcos_bootstrap.private_dns} > ${var.provisioner.directory}/vars",
       "echo export BOOTSTRAP_PORT=${var.bootstrap_port} >> ${var.provisioner.directory}/vars",
       "echo export DATACENTER=${var.infra_name} >> ${var.provisioner.directory}/vars",
-      "echo export NODE_NAME=dcos_slave_public_node-${count.index} >> ${var.provisioner.directory}/vars",
+      "echo export NODE_NAME=dcos_agent_public_node-${count.index} >> ${var.provisioner.directory}/vars",
       "echo export IPV4_PRIVATE=${self.private_ip} >> ${var.provisioner.directory}/vars",
       "echo export IPV4_PUBLIC=${self.public_ip} >> ${var.provisioner.directory}/vars",
-      "echo export DCOS_NODE_TYPE=slave_public >> ${var.provisioner.directory}/vars"
+      "echo export DCOS_NODE_TYPE=agent_public >> ${var.provisioner.directory}/vars"
     ]
   }
   provisioner "file" {
