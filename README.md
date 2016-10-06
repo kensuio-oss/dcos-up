@@ -51,7 +51,7 @@ Now, assuming you're on a amd64 arch, you can install by running the following:
 
 ## Create infrastructure
 
-    cd $HOME/dcos-terraform
+    cd $HOME/dcos-up
     source $HOME/.aws/terraform
     terraform apply
 
