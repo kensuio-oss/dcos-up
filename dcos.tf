@@ -1,5 +1,5 @@
 variable "infra_name" {
-  default = "test_infra"
+  default = "3dr_dcos_infra"
 }
 
 variable "region" {
@@ -37,20 +37,20 @@ variable "instance_counts" {
     agent_public = 1
   }
 }
-variable "vpc_cidr"{
-  description = "CIDR for dcos"
-  default = "10.0.0.0/16"
-}
+#variable "vpc_cidr"{
+#  description = "CIDR for dcos"
+#  default = "10.0.0.0/16"
+#}
 
-variable "private_subnet_cidr" {
-  description = "DCOS CIDR for the Private Subnet"
-  default = "10.0.0.0/17"
-}
+#variable "private_subnet_cidr" {
+#  description = "DCOS CIDR for the Private Subnet"
+#  default = "10.0.0.0/22"
+#}
 
-variable "public_subnet_cidr" {
-  description = "DCOS CIDR for the Public Subnet"
-  default = "10.0.128.0/20"
-}
+#variable "public_subnet_cidr" {
+#  description = "DCOS CIDR for the Public Subnet"
+#  default = "10.0.4.0/22"
+#}
 
 # please change the keys_dir that reflect the dcos_key dir on your machine
 variable "provisioner" {

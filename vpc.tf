@@ -1,13 +1,27 @@
-resource "dcos_vpc" "default" {
+resource "aws_vpc" "default" {
   cidr_block = "${var.vpc_cidr}"
   enable_dns_hostnames = true
   tags {
     Name = "dcos-3dr-vpc"
   }
 }
+variable "vpc_cidr"{
+  description = "CIDR for dcos"
+  default = "10.0.0.0/16"
+}
+
+variable "private_subnet_cidr" {
+  description = "DCOS CIDR for the Private Subnet"
+  default = "10.0.0.0/22"
+}
+
+variable "public_subnet_cidr" {
+  description = "DCOS CIDR for the Public Subnet"
+  default = "10.0.4.0/22"
+}
 
 resource "aws_internet_gateway" "default" {
-  vpc_id = "${dcos_vpc.default.id}"
+  vpc_id = "${aws_vpc.default.id}"
 }
 
 /*
@@ -15,7 +29,7 @@ resource "aws_internet_gateway" "default" {
 */
 resource  "dcos_security_group" "nat" {
   name = "vpc_nat"
-  description = "ALlow traffic to pass from the private subnet to the internet"
+  description = "Allow traffic to pass from the private subnet to the internet"
   
   ingress {
       from_port = 80
@@ -66,13 +80,13 @@ resource  "dcos_security_group" "nat" {
       cidr_blocks = ["0.0.0.0/0"]
   }
 
-  vpc_id = "${dcos_vpc.default.id}"
+  vpc_id = "${aws_vpc.default.id}"
   
   tags {
       Name = "NATSG"
   }
 }
-  resource "dcos_aws_instance" "nat" {
+  resource "aws_instance" "nat" {
         ami = "ami-4c9e4b24"
         availability_zone = "us-east-1a"
         instance_type = m3.medium
@@ -87,8 +101,30 @@ resource  "dcos_security_group" "nat" {
         }
   }
   
-  resource "dcos_eip" "nat" {
+  resource "aws_eip" "nat" {
       instance = "{dcos_aws_instance.nat.id}"
       vpc = true
   }
 
+/*
+  Public Subnet
+*/
+  resource "aws_subnet" "us-east-1b-public" {
+    vpc_id = "${aws_vpc.default.id}"
+    
+    cidr_block = "${var.public_subnet_cidr}"
+    availability_zone = "us-east-1b"
+
+    tags {
+      Name = "Public Subnet"
+    }
+}
+
+  resource "aws_route_table" "us-east-1b-public" {
+    vpc_id = "${aws_vpc.default.id}"
+    
+    route {
+      cidr_block = "10.0.0.0/16"
+      gateway_id = "${aws_internet_gateway.default.id}"
+    }
+  }
