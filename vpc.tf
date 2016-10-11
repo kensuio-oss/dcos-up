@@ -1,10 +1,13 @@
-resource "aws_vpc" "default" {
+resource "aws_vpc" "3dr_dcos" {
   cidr_block = "${var.vpc_cidr}"
+  enable_dns_support = true
   enable_dns_hostnames = true
+  
   tags {
     Name = "dcos-3dr-vpc"
   }
 }
+
 variable "vpc_cidr"{
   description = "CIDR for dcos"
   default = "10.0.0.0/16"
