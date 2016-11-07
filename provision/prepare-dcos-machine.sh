@@ -31,13 +31,13 @@ EOF
 log "Installing Docker with dependencies..."
 sudo yum install -y docker-engine wget tar xz unzip curl tree ipset
 
-# Configure docker:
+# NOTE: I don't think overlayfs works on stock Centos7.3: https://adminswerk.de/overlayfs-docker-storage-driver-centos-7/
 log "Creating, enabling and starting Docker service..."
 sudo mkdir -p /etc/systemd/system/docker.service.d
 sudo tee /etc/systemd/system/docker.service.d/override.conf <<EOF 
 [Service] 
 ExecStart= 
-ExecStart=/usr/bin/docker daemon --storage-driver=overlay -H fd:// 
+ExecStart=/usr/bin/docker daemon --storage-driver=overlay 
 EOF
 
 # Enable docker:

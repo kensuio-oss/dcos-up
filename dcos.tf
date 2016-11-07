@@ -1,20 +1,29 @@
 variable "infra_name" {
+  type = "string"
   default = "test_infra"
 }
 
 variable "region" {
-  default = "eu-west-1"
+  type = "string"
+  default = "us-east-1"
 }
 
 variable "availability_zone" {
-  default = "b"
+  type = "string"
+  default = "a"
+}
+
+variable "spot_price" {
+  default = "0.05"
 }
 
 variable "bootstrap_port" {
+  type = "string"
   default = "10000"
 }
 
 variable "ami_ids" {
+  type = "map"
   default {
     us-east-1 = "ami-6d1c2007"
     us-west-1 = "ami-af4333cf"
@@ -30,15 +39,17 @@ variable "ami_ids" {
 }
 
 variable "instance_types" {
+  type = "map"
   default = {
-    bootstrap    = "m4.2xlarge"
-    master       = "m4.2xlarge"
-    slave        = "m4.2xlarge"
-    slave_public = "m4.2xlarge"
+    bootstrap    = "m3.large"
+    master       = "m3.large"
+    slave        = "m3.large"
+    slave_public = "m3.large"
   }  
 }
 
 variable "instance_counts" {
+  type = "map"
   default = {
     master       = 1
     slave        = 2
@@ -47,11 +58,11 @@ variable "instance_counts" {
 }
 
 variable "provisioner" {
+  type = "map"
   default = {
     username = "centos"
     key_name = "dcos-centos"
-    keys_dir = "/Users/rad/Downloads"
-    directory = "/home/centos/provisioner" # we need to survive reboots
+    directory = "/home/centos/provision"
   }
 }
 
@@ -224,214 +235,225 @@ resource "aws_security_group" "dcos_master_insecure" {
 
 # INSTANCES:
 
-resource "aws_instance" "dcos_bootstrap" {
-  ami = "${lookup(var.ami_ids, var.region)}"
-  instance_type = "${var.instance_types.bootstrap}"
+resource "aws_spot_instance_request" "dcos_bootstrap" {
+  spot_price = "${var.spot_price}"
+  wait_for_fulfillment = true
+  associate_public_ip_address = true
+  ami = "${lookup(var.ami_ids,var.region)}"
+  instance_type = "${lookup(var.instance_types,"bootstrap")}"
   availability_zone = "${var.region}${var.availability_zone}"
-  key_name = "${var.provisioner.key_name}"
+  key_name = "${lookup(var.provisioner,"key_name")}"
   tags {
     Name = "${var.infra_name}_dcos_bootstrap"
   }
-  #security_groups = [ "${aws_security_group.ssh_access.name}",
-  #                    "${aws_security_group.consul_member.name}",
-  #                    "${aws_security_group.bootstrap_http.name}"]
   vpc_security_group_ids = [ "${aws_security_group.ssh_access.id}",
                              "${aws_security_group.consul_member.id}",
                              "${aws_security_group.bootstrap_http.id}"]
   connection {
-    user = "${var.provisioner.username}"
-    key_file = "${path.module}/keys//${var.provisioner.key_name}.pem"
+    type = "ssh"
+    user = "${lookup(var.provisioner,"username")}"
+    private_key = "${file("keys/${lookup(var.provisioner,"key_name")}.pem")}"
+    agent = false
   }
   provisioner "remote-exec" {
     inline = [
-      "mkdir -p ${var.provisioner.directory}",
-      "echo export BOOTSTRAP_NODE_ADDRESS=${self.private_dns} > ${var.provisioner.directory}/vars",
-      "echo export BOOTSTRAP_PORT=${var.bootstrap_port} >> ${var.provisioner.directory}/vars",
-      "echo export EXPECTED_MASTER_COUNT=${var.instance_counts.master} >> ${var.provisioner.directory}/vars",
-      "echo export EXPECTED_AGENT_COUNT=${var.instance_counts.slave+var.instance_counts.slave_public} >> ${var.provisioner.directory}/vars",
-      "echo export DATACENTER=${var.infra_name} >> ${var.provisioner.directory}/vars",
-      "echo export NODE_NAME=dcos_bootstrap >> ${var.provisioner.directory}/vars",
-      "echo export IS_CONSUL_SERVER=true >> ${var.provisioner.directory}/vars",
-      "echo export IS_BOOTSTRAP_SERVER=true >> ${var.provisioner.directory}/vars",
-      "echo export IPV4_PRIVATE=${self.private_ip} >> ${var.provisioner.directory}/vars",
-      "echo export IPV4_PUBLIC=${self.public_ip} >> ${var.provisioner.directory}/vars"
+      "mkdir -p ${lookup(var.provisioner,"directory")}",
+      "echo export BOOTSTRAP_NODE_ADDRESS=${self.private_dns} > ${lookup(var.provisioner,"directory")}/vars",
+      "echo export BOOTSTRAP_PORT=${var.bootstrap_port} >> ${lookup(var.provisioner,"directory")}/vars",
+      "echo export EXPECTED_MASTER_COUNT=${lookup(var.instance_counts, "master")} >> ${lookup(var.provisioner,"directory")}/vars",
+      "echo export EXPECTED_AGENT_COUNT=${lookup(var.instance_counts, "slave") + lookup(var.instance_counts, "slave_public")} >> ${lookup(var.provisioner,"directory")}/vars",
+      "echo export DATACENTER=${var.infra_name} >> ${lookup(var.provisioner,"directory")}/vars",
+      "echo export NODE_NAME=dcos_bootstrap >> ${lookup(var.provisioner,"directory")}/vars",
+      "echo export IS_CONSUL_SERVER=true >> ${lookup(var.provisioner,"directory")}/vars",
+      "echo export IS_BOOTSTRAP_SERVER=true >> ${lookup(var.provisioner,"directory")}/vars",
+      "echo export IPV4_PRIVATE=${self.private_ip} >> ${lookup(var.provisioner,"directory")}/vars",
+      "echo export IPV4_PUBLIC=${self.public_ip} >> ${lookup(var.provisioner,"directory")}/vars"
     ]
   }
   provisioner "file" {
     source = "${path.module}/provision/"
-    destination = "${var.provisioner.directory}"
+    destination = "${lookup(var.provisioner,"directory")}"
   }
   provisioner "remote-exec" {
     inline = [
-      "cd ${var.provisioner.directory} && chmod +x prepare-dcos-machine.sh && ./prepare-dcos-machine.sh"
+      "cd ${lookup(var.provisioner,"directory")} && chmod +x prepare-dcos-machine.sh && ./prepare-dcos-machine.sh"
     ]
   }
   provisioner "remote-exec" {
     inline = [
-      "cd ${var.provisioner.directory} && chmod +x setup-consul.sh && ./setup-consul.sh"
+      "cd ${lookup(var.provisioner,"directory")} && chmod +x setup-consul.sh && ./setup-consul.sh"
     ]
   }
 }
 
-resource "aws_instance" "dcos_master_node" {
-  count = "${var.instance_counts.master}"
-  ami = "${lookup(var.ami_ids, var.region)}"
-  instance_type = "${var.instance_types.master}"
+resource "aws_spot_instance_request" "dcos_master_node" {
+  spot_price = "${var.spot_price}"
+  wait_for_fulfillment = true
+  associate_public_ip_address = true
+  count = "${lookup(var.instance_counts,"master")}"
+  ami = "${lookup(var.ami_ids,var.region)}"
+  instance_type = "${lookup(var.instance_types,"master")}"
   availability_zone = "${var.region}${var.availability_zone}"
-  key_name = "${var.provisioner.key_name}"
+  key_name = "${lookup(var.provisioner,"key_name")}"
   tags {
     Name = "${var.infra_name}_dcos_master_node-${count.index}"
   }
-  #security_groups = [ "${aws_security_group.ssh_access.name}",
-  #                    "${aws_security_group.consul_member.name}",
-  #                    "${aws_security_group.dcos_member.name}",
-  #                     "${aws_security_group.dcos_master_insecure.name}" ]
   vpc_security_group_ids = [ "${aws_security_group.ssh_access.id}",
                              "${aws_security_group.consul_member.id}",
                              "${aws_security_group.dcos_member.id}",
                              "${aws_security_group.dcos_master_insecure.id}" ]
   connection {
-    user = "${var.provisioner.username}"
-    key_file = "${path.module}/keys//${var.provisioner.key_name}.pem"
+    user = "${lookup(var.provisioner,"username")}"
+    key_file = "${path.module}/keys/${lookup(var.provisioner,"key_name")}.pem"
   }
   provisioner "remote-exec" {
     inline = [
-      "mkdir -p ${var.provisioner.directory}",
-      "echo export BOOTSTRAP_NODE_ADDRESS=${aws_instance.dcos_bootstrap.private_dns} > ${var.provisioner.directory}/vars",
-      "echo export BOOTSTRAP_PORT=${var.bootstrap_port} >> ${var.provisioner.directory}/vars",
-      "echo export DATACENTER=${var.infra_name} >> ${var.provisioner.directory}/vars",
-      "echo export NODE_NAME=dcos_master_node-${count.index} >> ${var.provisioner.directory}/vars",
-      "echo export IPV4_PRIVATE=${self.private_ip} >> ${var.provisioner.directory}/vars",
-      "echo export IPV4_PUBLIC=${self.public_ip} >> ${var.provisioner.directory}/vars",
-      "echo export DCOS_NODE_TYPE=master >> ${var.provisioner.directory}/vars"
+      "mkdir -p ${lookup(var.provisioner,"directory")}",
+      "echo export BOOTSTRAP_NODE_ADDRESS=${aws_spot_instance_request.dcos_bootstrap.private_dns} > ${lookup(var.provisioner,"directory")}/vars",
+      "echo export BOOTSTRAP_PORT=${var.bootstrap_port} >> ${lookup(var.provisioner,"directory")}/vars",
+      "echo export DATACENTER=${var.infra_name} >> ${lookup(var.provisioner,"directory")}/vars",
+      "echo export NODE_NAME=dcos_master_node-${count.index} >> ${lookup(var.provisioner,"directory")}/vars",
+      "echo export IPV4_PRIVATE=${self.private_ip} >> ${lookup(var.provisioner,"directory")}/vars",
+      "echo export IPV4_PUBLIC=${self.public_ip} >> ${lookup(var.provisioner,"directory")}/vars",
+      "echo export DCOS_NODE_TYPE=master >> ${lookup(var.provisioner,"directory")}/vars"
     ]
   }
   provisioner "file" {
     source = "${path.module}/provision/"
-    destination = "${var.provisioner.directory}"
+    destination = "${lookup(var.provisioner,"directory")}"
   }
   provisioner "remote-exec" {
     inline = [
-      "cd ${var.provisioner.directory} && chmod +x prepare-dcos-machine.sh && ./prepare-dcos-machine.sh"
+      "cd ${lookup(var.provisioner,"directory")} && chmod +x prepare-dcos-machine.sh && ./prepare-dcos-machine.sh"
     ]
   }
   provisioner "remote-exec" {
     inline = [
-      "cd ${var.provisioner.directory} && chmod +x setup-consul.sh && ./setup-consul.sh"
+      "cd ${lookup(var.provisioner,"directory")} && chmod +x setup-consul.sh && ./setup-consul.sh"
     ]
   }
 }
 
-resource "aws_instance" "dcos_slave_node" {
-  count = "${var.instance_counts.slave}"
-  ami = "${lookup(var.ami_ids, var.region)}"
-  instance_type = "${var.instance_types.slave}"
+resource "aws_spot_instance_request" "dcos_slave_node" {
+  spot_price = "${var.spot_price}"
+  wait_for_fulfillment = true
+  associate_public_ip_address = true
+  count = "${lookup(var.instance_counts,"slave")}"
+  ami = "${lookup(var.ami_ids,var.region)}"
+  instance_type = "${lookup(var.instance_types,"slave")}"
   availability_zone = "${var.region}${var.availability_zone}"
-  key_name = "${var.provisioner.key_name}"
+  key_name = "${lookup(var.provisioner,"key_name")}"
   tags {
     Name = "${var.infra_name}_dcos_slave_node-${count.index}"
   }
-  #security_groups = [ "${aws_security_group.ssh_access.name}",
-  #                    "${aws_security_group.consul_member.name}",
-  #                    "${aws_security_group.dcos_member.name}",
-  #                    "${aws_security_group.dcos_slave.name}" ]
   vpc_security_group_ids = [ "${aws_security_group.ssh_access.id}",
                              "${aws_security_group.consul_member.id}",
                              "${aws_security_group.dcos_member.id}",
                              "${aws_security_group.dcos_slave.id}" ]
   connection {
-    user = "${var.provisioner.username}"
-    key_file = "${path.module}/keys/${var.provisioner.key_name}.pem"
+    user = "${lookup(var.provisioner,"username")}"
+    key_file = "${path.module}/keys/${lookup(var.provisioner,"key_name")}.pem"
   }
   provisioner "remote-exec" {
     inline = [
-      "mkdir -p ${var.provisioner.directory}",
-      "echo export BOOTSTRAP_NODE_ADDRESS=${aws_instance.dcos_bootstrap.private_dns} > ${var.provisioner.directory}/vars",
-      "echo export BOOTSTRAP_PORT=${var.bootstrap_port} >> ${var.provisioner.directory}/vars",
-      "echo export DATACENTER=${var.infra_name} >> ${var.provisioner.directory}/vars",
-      "echo export NODE_NAME=dcos_slave_node-${count.index} >> ${var.provisioner.directory}/vars",
-      "echo export IPV4_PRIVATE=${self.private_ip} >> ${var.provisioner.directory}/vars",
-      "echo export IPV4_PUBLIC=${self.public_ip} >> ${var.provisioner.directory}/vars",
-      "echo export DCOS_NODE_TYPE=slave >> ${var.provisioner.directory}/vars"
+      "mkdir -p ${lookup(var.provisioner,"directory")}",
+      "echo export BOOTSTRAP_NODE_ADDRESS=${aws_spot_instance_request.dcos_bootstrap.private_dns} > ${lookup(var.provisioner,"directory")}/vars",
+      "echo export BOOTSTRAP_PORT=${var.bootstrap_port} >> ${lookup(var.provisioner,"directory")}/vars",
+      "echo export DATACENTER=${var.infra_name} >> ${lookup(var.provisioner,"directory")}/vars",
+      "echo export NODE_NAME=dcos_slave_node-${count.index} >> ${lookup(var.provisioner,"directory")}/vars",
+      "echo export IPV4_PRIVATE=${self.private_ip} >> ${lookup(var.provisioner,"directory")}/vars",
+      "echo export IPV4_PUBLIC=${self.public_ip} >> ${lookup(var.provisioner,"directory")}/vars",
+      "echo export DCOS_NODE_TYPE=slave >> ${lookup(var.provisioner,"directory")}/vars"
     ]
   }
   provisioner "file" {
     source = "${path.module}/provision/"
-    destination = "${var.provisioner.directory}"
+    destination = "${lookup(var.provisioner,"directory")}"
   }
   provisioner "remote-exec" {
     inline = [
-      "cd ${var.provisioner.directory} && chmod +x prepare-dcos-machine.sh && ./prepare-dcos-machine.sh"
+      "cd ${lookup(var.provisioner,"directory")} && chmod +x prepare-dcos-machine.sh && ./prepare-dcos-machine.sh"
     ]
   }
   provisioner "remote-exec" {
     inline = [
-      "cd ${var.provisioner.directory} && chmod +x setup-consul.sh && ./setup-consul.sh"
+      "cd ${lookup(var.provisioner,"directory")} && chmod +x setup-consul.sh && ./setup-consul.sh"
     ]
   }
 }
 
-resource "aws_instance" "dcos_slave_public_node" {
-  count = "${var.instance_counts.slave_public}"
-  ami = "${lookup(var.ami_ids, var.region)}"
-  instance_type = "${var.instance_types.slave_public}"
+resource "aws_spot_instance_request" "dcos_slave_public_node" {
+  spot_price = "${var.spot_price}"
+  wait_for_fulfillment = true
+  associate_public_ip_address = true
+  count = "${lookup(var.instance_counts,"slave_public")}"
+  ami = "${lookup(var.ami_ids,var.region)}"
+  instance_type = "${lookup(var.instance_types,"slave_public")}"
   availability_zone = "${var.region}${var.availability_zone}"
-  key_name = "${var.provisioner.key_name}"
+  key_name = "${lookup(var.provisioner,"key_name")}"
   tags {
     Name = "${var.infra_name}_dcos_slave_public_node-${count.index}"
   }
-  #security_groups = [ "${aws_security_group.ssh_access.name}",
-  #                    "${aws_security_group.consul_member.name}",
-  #                    "${aws_security_group.dcos_member.name}",
-  #                    "${aws_security_group.dcos_slave_public.name}" ]
   vpc_security_group_ids = [ "${aws_security_group.ssh_access.id}",
                              "${aws_security_group.consul_member.id}",
                              "${aws_security_group.dcos_member.id}",
                              "${aws_security_group.dcos_slave_public.id}" ]
   connection {
-    user = "${var.provisioner.username}"
-    key_file = "${path.module}/keys/${var.provisioner.key_name}.pem"
+    user = "${lookup(var.provisioner,"username")}"
+    key_file = "${path.module}/keys/${lookup(var.provisioner,"key_name")}.pem"
   }
   provisioner "remote-exec" {
     inline = [
-      "mkdir -p ${var.provisioner.directory}",
-      "echo export BOOTSTRAP_NODE_ADDRESS=${aws_instance.dcos_bootstrap.private_dns} > ${var.provisioner.directory}/vars",
-      "echo export BOOTSTRAP_PORT=${var.bootstrap_port} >> ${var.provisioner.directory}/vars",
-      "echo export DATACENTER=${var.infra_name} >> ${var.provisioner.directory}/vars",
-      "echo export NODE_NAME=dcos_slave_public_node-${count.index} >> ${var.provisioner.directory}/vars",
-      "echo export IPV4_PRIVATE=${self.private_ip} >> ${var.provisioner.directory}/vars",
-      "echo export IPV4_PUBLIC=${self.public_ip} >> ${var.provisioner.directory}/vars",
-      "echo export DCOS_NODE_TYPE=slave_public >> ${var.provisioner.directory}/vars"
+      "mkdir -p ${lookup(var.provisioner,"directory")}",
+      "echo export BOOTSTRAP_NODE_ADDRESS=${aws_spot_instance_request.dcos_bootstrap.private_dns} > ${lookup(var.provisioner,"directory")}/vars",
+      "echo export BOOTSTRAP_PORT=${var.bootstrap_port} >> ${lookup(var.provisioner,"directory")}/vars",
+      "echo export DATACENTER=${var.infra_name} >> ${lookup(var.provisioner,"directory")}/vars",
+      "echo export NODE_NAME=dcos_slave_public_node-${count.index} >> ${lookup(var.provisioner,"directory")}/vars",
+      "echo export IPV4_PRIVATE=${self.private_ip} >> ${lookup(var.provisioner,"directory")}/vars",
+      "echo export IPV4_PUBLIC=${self.public_ip} >> ${lookup(var.provisioner,"directory")}/vars",
+      "echo export DCOS_NODE_TYPE=slave_public >> ${lookup(var.provisioner,"directory")}/vars"
     ]
   }
   provisioner "file" {
     source = "${path.module}/provision/"
-    destination = "${var.provisioner.directory}"
+    destination = "${lookup(var.provisioner,"directory")}"
   }
   provisioner "remote-exec" {
     inline = [
-      "cd ${var.provisioner.directory} && chmod +x prepare-dcos-machine.sh && ./prepare-dcos-machine.sh"
+      "cd ${lookup(var.provisioner,"directory")} && chmod +x prepare-dcos-machine.sh && ./prepare-dcos-machine.sh"
     ]
   }
   provisioner "remote-exec" {
     inline = [
-      "cd ${var.provisioner.directory} && chmod +x setup-consul.sh && ./setup-consul.sh"
+      "cd ${lookup(var.provisioner,"directory")} && chmod +x setup-consul.sh && ./setup-consul.sh"
     ]
   }
 }
 
 output "bootstrap_ip" {
-  value = "${aws_instance.dcos_bootstrap.public_ip}"
+  value = "${aws_spot_instance_request.dcos_bootstrap.public_ip}"
 }
 
 output "exhibitor_address" {
-  value = "http://${aws_instance.dcos_master_node.public_ip}:8181/exhibitor/v1/ui/index.html"
+  value = "http://${aws_spot_instance_request.dcos_master_node.0.public_ip}:8181/exhibitor/v1/ui/index.html"
 }
 
 output "dcos_ui_address" {
-  value = "http://${aws_instance.dcos_master_node.public_ip}"
+  value = "http://${aws_spot_instance_request.dcos_master_node.0.public_ip}"
 }
 
 output "dcos_marathon_address" {
-  value = "http://${aws_instance.dcos_master_node.public_ip}:8080"
+  value = "http://${aws_spot_instance_request.dcos_master_node.0.public_ip}:8080"
+}
+
+output "slave ip addresses" {
+  value = "${join(",", aws_spot_instance_request.dcos_slave_node.*.public_ip)}"
+}
+
+output "slave_public ip addresses" {
+  value = "${join(",", aws_spot_instance_request.dcos_slave_public_node.*.public_ip)}"
+}
+
+output "master ip addresses" {
+  value = "${join(",", aws_spot_instance_request.dcos_master_node.*.public_ip)}"
 }
