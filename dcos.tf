@@ -17,11 +17,6 @@ variable "spot_price" {
   default = "0.05"
 }
 
-variable "bootstrap_port" {
-  type = "string"
-  default = "10000"
-}
-
 variable "ami_ids" {
   type = "map"
   default {
@@ -43,8 +38,18 @@ variable "instance_types" {
   default = {
     bootstrap    = "m3.large"
     master       = "m3.large"
-    slave        = "m3.large"
+    slave        = "m3.xlarge"
     slave_public = "m3.large"
+  }  
+}
+
+variable "root_block_sizes" {
+  type = "map"
+  default = {
+    bootstrap    = "32"
+    master       = "32"
+    slave        = "80"
+    slave_public = "32"
   }  
 }
 
@@ -52,7 +57,7 @@ variable "instance_counts" {
   type = "map"
   default = {
     master       = 1
-    slave        = 2
+    slave        = 5
     slave_public = 1
   }
 }
@@ -64,6 +69,11 @@ variable "provisioner" {
     key_name = "dcos-centos"
     directory = "/home/centos/provision"
   }
+}
+
+variable "bootstrap_port" {
+  type = "string"
+  default = "10000"
 }
 
 resource "aws_security_group" "ssh_access" {
@@ -243,6 +253,11 @@ resource "aws_spot_instance_request" "dcos_bootstrap" {
   instance_type = "${lookup(var.instance_types,"bootstrap")}"
   availability_zone = "${var.region}${var.availability_zone}"
   key_name = "${lookup(var.provisioner,"key_name")}"
+  root_block_device {
+    volume_type = "gp2"
+    volume_size = "${lookup(var.root_block_sizes,"bootstrap")}"
+    delete_on_termination = true
+  }
   tags {
     Name = "${var.infra_name}_dcos_bootstrap"
   }
@@ -295,6 +310,11 @@ resource "aws_spot_instance_request" "dcos_master_node" {
   instance_type = "${lookup(var.instance_types,"master")}"
   availability_zone = "${var.region}${var.availability_zone}"
   key_name = "${lookup(var.provisioner,"key_name")}"
+  root_block_device {
+    volume_type = "gp2"  
+    volume_size = "${lookup(var.root_block_sizes,"master")}"
+    delete_on_termination = true
+  }
   tags {
     Name = "${var.infra_name}_dcos_master_node-${count.index}"
   }
@@ -343,6 +363,11 @@ resource "aws_spot_instance_request" "dcos_slave_node" {
   instance_type = "${lookup(var.instance_types,"slave")}"
   availability_zone = "${var.region}${var.availability_zone}"
   key_name = "${lookup(var.provisioner,"key_name")}"
+  root_block_device {
+    volume_type = "gp2"  
+    volume_size = "${lookup(var.root_block_sizes,"slave")}"
+    delete_on_termination = true
+  }
   tags {
     Name = "${var.infra_name}_dcos_slave_node-${count.index}"
   }
@@ -391,6 +416,11 @@ resource "aws_spot_instance_request" "dcos_slave_public_node" {
   instance_type = "${lookup(var.instance_types,"slave_public")}"
   availability_zone = "${var.region}${var.availability_zone}"
   key_name = "${lookup(var.provisioner,"key_name")}"
+  root_block_device {
+    volume_type = "gp2" 
+    volume_size = "${lookup(var.root_block_sizes,"slave_public")}"
+    delete_on_termination = true
+  }
   tags {
     Name = "${var.infra_name}_dcos_slave_public_node-${count.index}"
   }
@@ -444,6 +474,10 @@ output "dcos_ui_address" {
 
 output "dcos_marathon_address" {
   value = "http://${aws_spot_instance_request.dcos_master_node.0.public_ip}:8080"
+}
+
+output "dcos_mesos_address" {
+  value = "http://${aws_spot_instance_request.dcos_master_node.0.public_ip}/mesos"
 }
 
 output "slave ip addresses" {
