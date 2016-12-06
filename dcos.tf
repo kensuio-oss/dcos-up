@@ -50,7 +50,6 @@ variable "provisioner" {
   default = {
     username = "centos"
     key_name = "dcos-centos"
-    keys_dir = "/Users/rad/Downloads"
     directory = "/home/centos/provisioner" # we need to survive reboots
   }
 }

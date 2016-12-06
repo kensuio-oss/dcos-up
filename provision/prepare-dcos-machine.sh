@@ -34,10 +34,10 @@ sudo yum install -y docker-engine wget tar xz unzip curl tree ipset
 # Configure docker:
 log "Creating, enabling and starting Docker service..."
 sudo mkdir -p /etc/systemd/system/docker.service.d
-sudo tee /etc/systemd/system/docker.service.d/override.conf <<EOF 
-[Service] 
-ExecStart= 
-ExecStart=/usr/bin/docker daemon --storage-driver=overlay -H fd:// 
+sudo tee /etc/systemd/system/docker.service.d/override.conf <<EOF
+[Service]
+ExecStart=
+ExecStart=/usr/bin/docker daemon --storage-driver=overlay
 EOF
 
 # Enable docker:
