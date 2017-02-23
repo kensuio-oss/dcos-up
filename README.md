@@ -40,7 +40,7 @@ Now, assuming you're on a amd64 arch, you can install by running the following:
     #!/bin/bash
     export AWS_ACCESS_KEY_ID=AKIA...
     export AWS_SECRET_ACCESS_KEY=...
-    export AWS_DEFAULT_REGION="eu-west-1"
+    export AWS_DEFAULT_REGION="us-east-1"
     EOF
 
 ## See the plan
@@ -56,7 +56,6 @@ Now, assuming you're on a amd64 arch, you can install by running the following:
     terraform apply
 
 This will create all AWS resources and start the process of setting up DCOS masters, agents and the bootstrap node.
-TODO: ... add estimates on how long does it usually take to create the infra.
 
 ## Infrastructure name
 
@@ -64,7 +63,7 @@ The template defines infrastructure name using the `infra_name` variable. The de
 
     cd $HOME/dcos-terraform
     source $HOME/.aws/terraform
-    TF_VAR_infra_name=myinfra
+    export TF_VAR_infra_name=myinfra
     terraform apply
     ...
 

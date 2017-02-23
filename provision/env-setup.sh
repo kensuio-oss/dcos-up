@@ -12,7 +12,7 @@ log() {
   echo "[`date +%s`]: $1" >> /var/log/provisioning.log
 }
 
-export CONSUL_VERSION=${CONSUL_VERSION-0.6.4}
+export CONSUL_VERSION=${CONSUL_VERSION-0.7.1}
 export CONSUL_INSTALL_DIR=${CONSUL_INSTALL_DIR-"/opt/consul"}
 export IS_CONSUL_SERVER=${IS_CONSUL_SERVER-false}
 export IS_BOOTSTRAP_SERVER=${IS_BOOTSTRAP_SERVER-false}

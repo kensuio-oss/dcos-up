@@ -4,6 +4,11 @@
 
 source `pwd`/env-setup.sh
 
+# Increase OS user limits for HDFS among others
+echo "fs.epoll.max_user_instances = 2048"  >> /etc/sysctl.conf
+echo "*    -      nofile    32768" >> /etc/security/limits.conf
+echo "*    -      noproc    65536" >> /etc/security/limits.conf
+
 export SUPERUSER_PASSWORD=${SUPERUSER_PASSWORD-"superuser-pass"}
 export DCOS_ZK_NAME=${DCOS_ZK_NAME-dcos_int_zk}
 

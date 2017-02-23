@@ -4,6 +4,11 @@
 
 source `pwd`/env-setup.sh
 
+# Install dcos-cli on all master nodes.
+log "Installing DCOS CLI into /usr/local/bin"
+curl -vfLsS --retry 20 -Y 100000 -y 60 https://downloads.dcos.io/binaries/cli/linux/x86-64/dcos-1.8/dcos -o /usr/local/bin/dcos && chmod +x /usr/local/bin/dcos 
+log "After provisioning, to use DCOS CLI, run:  dcos config set core.dcos_url http://[MASTER_NODE_IP]"
+
 log "Generating DCOS config..."
 `pwd`/dcos_generate_config.sh
 if [ $? != 0 ]; then
