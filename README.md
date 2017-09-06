@@ -31,7 +31,7 @@ Now, assuming you're on a amd64 arch, you can install by running the following:
 
     mkdir -p $HOME/dcos-terraform
     cd $HOME/dcos-terraform
-    git clone https://github.com/data-fellas/dcos-terraform.git .
+    git clone https://github.com/data-fellas/dcos-up.git .
 
 ## Create terraform credentials file
 
