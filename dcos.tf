@@ -484,6 +484,8 @@ output "slave ip addresses" {
   value = "${join(",", aws_spot_instance_request.dcos_slave_node.*.public_ip)}"
 }
 
+
+
 output "slave_public ip addresses" {
   value = "${join(",", aws_spot_instance_request.dcos_slave_public_node.*.public_ip)}"
 }
