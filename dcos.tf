@@ -5,7 +5,7 @@ variable "infra_name" {
 
 variable "region" {
   type = "string"
-  default = "us-east-1"
+  default = "us-west-1"
 }
 
 variable "availability_zone" {
@@ -15,6 +15,10 @@ variable "availability_zone" {
 
 variable "spot_price" {
   default = "0.05"
+}
+
+variable "private_key" {
+  type = "string"
 }
 
 variable "ami_ids" {
@@ -40,7 +44,7 @@ variable "instance_types" {
     master       = "m3.large"
     slave        = "m3.xlarge"
     slave_public = "m3.large"
-  }  
+  }
 }
 
 variable "root_block_sizes" {
@@ -50,7 +54,7 @@ variable "root_block_sizes" {
     master       = "32"
     slave        = "80"
     slave_public = "32"
-  }  
+  }
 }
 
 variable "instance_counts" {
@@ -267,8 +271,7 @@ resource "aws_spot_instance_request" "dcos_bootstrap" {
   connection {
     type = "ssh"
     user = "${lookup(var.provisioner,"username")}"
-    private_key = "${file("keys/${lookup(var.provisioner,"key_name")}.pem")}"
-    agent = false
+    private_key = "${var.private_key}"    agent = false
   }
   provisioner "remote-exec" {
     inline = [
@@ -311,7 +314,7 @@ resource "aws_spot_instance_request" "dcos_master_node" {
   availability_zone = "${var.region}${var.availability_zone}"
   key_name = "${lookup(var.provisioner,"key_name")}"
   root_block_device {
-    volume_type = "gp2"  
+    volume_type = "gp2"
     volume_size = "${lookup(var.root_block_sizes,"master")}"
     delete_on_termination = true
   }
@@ -324,8 +327,7 @@ resource "aws_spot_instance_request" "dcos_master_node" {
                              "${aws_security_group.dcos_master_insecure.id}" ]
   connection {
     user = "${lookup(var.provisioner,"username")}"
-    key_file = "${path.module}/keys/${lookup(var.provisioner,"key_name")}.pem"
-  }
+    private_key = "${var.private_key}"  }
   provisioner "remote-exec" {
     inline = [
       "mkdir -p ${lookup(var.provisioner,"directory")}",
@@ -364,7 +366,7 @@ resource "aws_spot_instance_request" "dcos_slave_node" {
   availability_zone = "${var.region}${var.availability_zone}"
   key_name = "${lookup(var.provisioner,"key_name")}"
   root_block_device {
-    volume_type = "gp2"  
+    volume_type = "gp2"
     volume_size = "${lookup(var.root_block_sizes,"slave")}"
     delete_on_termination = true
   }
@@ -377,8 +379,7 @@ resource "aws_spot_instance_request" "dcos_slave_node" {
                              "${aws_security_group.dcos_slave.id}" ]
   connection {
     user = "${lookup(var.provisioner,"username")}"
-    key_file = "${path.module}/keys/${lookup(var.provisioner,"key_name")}.pem"
-  }
+    private_key = "${var.private_key}"  }
   provisioner "remote-exec" {
     inline = [
       "mkdir -p ${lookup(var.provisioner,"directory")}",
@@ -417,7 +418,7 @@ resource "aws_spot_instance_request" "dcos_slave_public_node" {
   availability_zone = "${var.region}${var.availability_zone}"
   key_name = "${lookup(var.provisioner,"key_name")}"
   root_block_device {
-    volume_type = "gp2" 
+    volume_type = "gp2"
     volume_size = "${lookup(var.root_block_sizes,"slave_public")}"
     delete_on_termination = true
   }
@@ -430,8 +431,7 @@ resource "aws_spot_instance_request" "dcos_slave_public_node" {
                              "${aws_security_group.dcos_slave_public.id}" ]
   connection {
     user = "${lookup(var.provisioner,"username")}"
-    key_file = "${path.module}/keys/${lookup(var.provisioner,"key_name")}.pem"
-  }
+    private_key = "${var.private_key}"  }
   provisioner "remote-exec" {
     inline = [
       "mkdir -p ${lookup(var.provisioner,"directory")}",
@@ -483,6 +483,8 @@ output "dcos_mesos_address" {
 output "slave ip addresses" {
   value = "${join(",", aws_spot_instance_request.dcos_slave_node.*.public_ip)}"
 }
+
+
 
 output "slave_public ip addresses" {
   value = "${join(",", aws_spot_instance_request.dcos_slave_public_node.*.public_ip)}"
