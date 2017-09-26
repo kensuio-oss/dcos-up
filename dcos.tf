@@ -17,6 +17,10 @@ variable "spot_price" {
   default = "0.05"
 }
 
+variable "private_key" {
+  type = "string"
+}
+
 variable "ami_ids" {
   type = "map"
   default {
@@ -267,8 +271,7 @@ resource "aws_spot_instance_request" "dcos_bootstrap" {
   connection {
     type = "ssh"
     user = "${lookup(var.provisioner,"username")}"
-    private_key = "${file("keys/${lookup(var.provisioner,"key_name")}.pem")}"
-    agent = false
+    private_key = "${var.private_key}"    agent = false
   }
   provisioner "remote-exec" {
     inline = [
@@ -324,8 +327,7 @@ resource "aws_spot_instance_request" "dcos_master_node" {
                              "${aws_security_group.dcos_master_insecure.id}" ]
   connection {
     user = "${lookup(var.provisioner,"username")}"
-    private_key = "${file("keys/${lookup(var.provisioner,"key_name")}.pem")}"
-  }
+    private_key = "${var.private_key}"  }
   provisioner "remote-exec" {
     inline = [
       "mkdir -p ${lookup(var.provisioner,"directory")}",
@@ -377,8 +379,7 @@ resource "aws_spot_instance_request" "dcos_slave_node" {
                              "${aws_security_group.dcos_slave.id}" ]
   connection {
     user = "${lookup(var.provisioner,"username")}"
-    private_key = "${file("keys/${lookup(var.provisioner,"key_name")}.pem")}"
-  }
+    private_key = "${var.private_key}"  }
   provisioner "remote-exec" {
     inline = [
       "mkdir -p ${lookup(var.provisioner,"directory")}",
@@ -430,8 +431,7 @@ resource "aws_spot_instance_request" "dcos_slave_public_node" {
                              "${aws_security_group.dcos_slave_public.id}" ]
   connection {
     user = "${lookup(var.provisioner,"username")}"
-    private_key = "${file("keys/${lookup(var.provisioner,"key_name")}.pem")}"
-  }
+    private_key = "${var.private_key}"  }
   provisioner "remote-exec" {
     inline = [
       "mkdir -p ${lookup(var.provisioner,"directory")}",
